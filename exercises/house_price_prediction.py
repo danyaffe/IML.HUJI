@@ -1,16 +1,22 @@
 from IMLearn.utils import split_train_test
 from IMLearn.learners.regressors import LinearRegression
 
-from typing import NoReturn
+from tqdm import tqdm
+import os
+from typing import NoReturn, Tuple
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-import plotly.io as pio
-pio.templates.default = "simple_white"
+from matplotlib import pyplot as plt
 
 
-def load_data(filename: str):
+# import plotly.graph_objects as go
+# import plotly.express as px
+# import plotly.io as pio
+#
+# pio.templates.default = "simple_white"
+
+
+def load_data(filename: str) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Load house prices dataset and preprocess data.
     Parameters
@@ -23,7 +29,18 @@ def load_data(filename: str):
     Design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    raise NotImplementedError()
+    df = pd.read_csv(filename)
+    df = df.drop(["id", "date", "lat", "long"], axis=1)
+    lastBuiltCol = pd.DataFrame(np.maximum(df["yr_built"].to_numpy(), df["yr_renovated"].to_numpy()),
+                                columns=["yr_touched"])
+    df = df.drop(["yr_built", "yr_renovated"], axis=1).join(lastBuiltCol)
+    df = pd.get_dummies(df, columns=["zipcode"])
+    df = df.dropna()
+    df = df[(df >= 0).all(1)]
+    df = df.drop(df.index[df['bedrooms'] > 20])
+    y = df["price"]
+    X = df.drop(["price"], axis=1)
+    return X, y
 
 
 def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") -> NoReturn:
@@ -43,19 +60,27 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    raise NotImplementedError()
+    std_y = np.std(y)
+    for name, values in tqdm(X.iteritems()):
+        pc = float(np.cov(values, y.T)[0][1] / (np.std(values) * std_y))
+        plt.scatter(values, y)
+        plt.title(f"Feature correlation of {name} with $\\rho={pc:.3f}$")
+        plt.savefig(output_path + "/feat_correlation_" + str(name) + ".png", format="png")
+        plt.figure()
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     # Question 1 - Load and preprocessing of housing prices dataset
-    raise NotImplementedError()
+    dirname = os.path.dirname(__file__)
+    filename = os.path.join(dirname, f'../datasets/house_prices.csv')
+    X, y = load_data(filename)
 
     # Question 2 - Feature evaluation with respect to response
-    raise NotImplementedError()
+    feature_evaluation(X, y, dirname + "/feat_col_graphs")
 
     # Question 3 - Split samples into training- and testing sets.
-    raise NotImplementedError()
+    train_x, train_y, test_x, test_y = split_train_test(X, y, .75)
 
     # Question 4 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:
@@ -64,4 +89,24 @@ if __name__ == '__main__':
     #   3) Test fitted model over test set
     #   4) Store average and variance of loss over test set
     # Then plot average loss as function of training size with error ribbon of size (mean-2*std, mean+2*std)
-    raise NotImplementedError()
+    model = LinearRegression()
+    means = []
+    stds2 = []
+    range_it = list(range(10, 101))
+    for p in tqdm(range_it):
+        losses = np.zeros((10,))
+        for i in range(10):
+            seed = np.random.randint(np.iinfo(np.int32).max)
+            txp = train_x.sample(frac=p / 100, random_state=seed)
+            typ = train_y.sample(frac=p / 100, random_state=seed)
+            model.fit(txp.to_numpy(), typ.to_numpy())
+            losses[i] = model.loss(test_x.to_numpy(), test_y.to_numpy())
+        means.append(np.mean(losses))
+        stds2.append(2 * np.std(losses))
+    plt.plot(range_it, means)
+    # plt.fill_between(range_it, error_min, error_max)
+    plt.errorbar(range_it, means, yerr=stds2)
+    plt.title("Loss of model with different train sizes")
+    plt.xlabel("percentage of train used")
+    plt.ylabel("Loss mean, with error")
+    plt.show()
