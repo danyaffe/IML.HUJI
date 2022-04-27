@@ -28,12 +28,12 @@ class Perceptron(BaseEstimator):
         Coefficients vector fitted by Perceptron algorithm. To be set in
         `Perceptron.fit` function.
 
-    training_loss_: array of floats
-        holds the loss value of the algorithm during training.
-        training_loss_[i] is the loss value of the i'th training iteration.
-        to be filled in `Perceptron.fit` function.
+    callback_: Callable[[Perceptron, np.ndarray, int], None]
+            A callable to be called after each update of the model while fitting to given data
+            Callable function should receive as input a Perceptron instance, current sample and current response
 
     """
+
     def __init__(self,
                  include_intercept: bool = True,
                  max_iter: int = 1000,
@@ -91,7 +91,18 @@ class Perceptron(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.fit_intercept_`
         """
-        raise NotImplementedError()
+
+        self.coefs_ = np.zeros((X.shape[1] + 1 if self.include_intercept_ else 0,))
+        for j in range(self.max_iter_):
+            val_changed = False
+            for i, x_i in X:
+                if y[i] * self.coefs_.dot(x_i) <= 0:
+                    self.coefs_ = self.coefs_ + y[i] * x_i
+                    self.fitted_ = True
+                    val_changed = True
+                    self.callback_(self, x_i, y[i])
+                    break
+            if not val_changed: break
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -107,7 +118,7 @@ class Perceptron(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return np.sign(X.dot(self.coefs_))
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -126,4 +137,4 @@ class Perceptron(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        return mce(y, self._predict(X))
