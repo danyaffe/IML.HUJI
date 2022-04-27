@@ -27,7 +27,7 @@ def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
 
     """
     data = np.load(filename)
-    return data[:, :2], data[:, 2]
+    return data[:, :2], data[:, 2].astype(int)
 
 
 def run_perceptron():
@@ -37,12 +37,9 @@ def run_perceptron():
     Create a line plot that shows the perceptron algorithm's training loss values (y-axis)
     as a function of the training iterations (x-axis).
     """
-    for n, f in [("Linearly Separable", "linearly_separable.npy"),
-                 ("Linearly Inseparable", "linearly_inseparable.npy")]:
+    for n, f in [("Linearly Separable", "linearly_separable.npy"), ("Linearly Inseparable", "linearly_inseparable.npy")]:
         # Load dataset
-        X, y = load_dataset(f"../datasets/{f}")
-        fig = go.Figure(data=go.Scatter(x=X[:,0], y=X[:,1], mode='markers', marker=dict(color=y)))
-        fig.show()
+        raise NotImplementedError()
 
         # Fit Perceptron and record loss in each fit iteration
         losses = []
