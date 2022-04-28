@@ -6,6 +6,7 @@ from typing import Tuple
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
+from math import atan2, pi
 
 pio.templates.default = "simple_white"
 
@@ -54,7 +55,37 @@ def run_perceptron():
 
         # Plot figure
         fig = go.Figure(go.Scatter(x=list(range(len(losses))), y=losses))
+        fig.update_layout(
+            title=f"Perceptron loss on the '{n}' dataset",
+            xaxis_title="Iteration",
+            yaxis_title="Loss"
+        )
         fig.show()
+
+
+def get_ellipse(mu: np.ndarray, cov: np.ndarray):
+    """
+    Draw an ellipse centered at given location and according to specified covariance matrix
+
+    Parameters
+    ----------
+    mu : ndarray of shape (2,)
+        Center of ellipse
+
+    cov: ndarray of shape (2,2)
+        Covariance of Gaussian
+
+    Returns
+    -------
+        scatter: A plotly trace object of the ellipse
+    """
+    l1, l2 = tuple(np.linalg.eigvalsh(cov)[::-1])
+    theta = atan2(l1 - cov[0, 0], cov[0, 1]) if cov[0, 1] != 0 else (np.pi / 2 if cov[0, 0] < cov[1, 1] else 0)
+    t = np.linspace(0, 2 * pi, 100)
+    xs = (l1 * np.cos(theta) * np.cos(t)) - (l2 * np.sin(theta) * np.sin(t))
+    ys = (l1 * np.sin(theta) * np.cos(t)) + (l2 * np.cos(theta) * np.sin(t))
+
+    return go.Scatter(x=mu[0] + xs, y=mu[1] + ys, mode="lines", marker_color="black")
 
 
 def compare_gaussian_classifiers():
@@ -70,29 +101,44 @@ def compare_gaussian_classifiers():
         lda.fit(X, y)
         lda_pred = lda.predict(X)
         bayes = GaussianNaiveBayes()
-        bayes.fit(X,y)
+        bayes.fit(X, y)
         bayes_pred = bayes.predict(X)
 
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         from IMLearn.metrics import accuracy
         fig = make_subplots(rows=1, cols=2)
-        fig.update_layout(showlegend=False,title_text="Side By Side Subplots")
+        fig.update_layout(showlegend=False, title_text=f"LDA and GaussianNaiveBayes vs. {f}", xaxis_title="Feature 1",
+            yaxis_title="Feature 2")
 
         fig.add_trace(
             go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=lda_pred, symbol=y)),
             row=1, col=1
         )
-
-
+        for mu in lda.mu_:
+            fig.add_trace(
+                get_ellipse(mu, lda.cov_), row=1, col=1
+            )
+            fig.add_trace(
+                go.Scatter(x=[mu[0]], y=[mu[1]], mode="markers", marker_symbol=34, marker_line_color="black",
+                           marker_line_width=2, marker_size=15), row=1, col=1
+            )
         fig.add_trace(
             go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=bayes_pred, symbol=y)),
             row=1, col=2
         )
-
+        for mu, cov in zip(bayes.mu_, bayes.vars_):
+            fig.add_trace(
+                get_ellipse(mu, np.diag(cov)), row=1, col=2
+            )
+            fig.add_trace(
+                go.Scatter(x=[mu[0]], y=[mu[1]], mode="markers", marker_symbol=34, marker_line_color="black",
+                           marker_line_width=2, marker_size=15), row=1, col=2
+            )
         fig.show()
+
 
 if __name__ == '__main__':
     np.random.seed(0)
-    # run_perceptron()
+    run_perceptron()
     compare_gaussian_classifiers()
