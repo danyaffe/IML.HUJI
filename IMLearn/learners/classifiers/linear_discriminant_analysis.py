@@ -25,6 +25,7 @@ class LDA(BaseEstimator):
     self.pi_: np.ndarray of shape (n_classes)
         The estimated class probabilities. To be set in `GaussianNaiveBayes.fit`
     """
+
     def __init__(self):
         """
         Instantiate an LDA classifier
@@ -46,7 +47,17 @@ class LDA(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.classes_ = np.unique(y)
+        k = self.classes_.size
+        self.pi_ = np.zeros((k,))
+        self.mu_ = np.zeros((k, X.shape[1]))
+        for i, c in enumerate(self.classes_):
+            self.pi_[i] = np.sum(c == y) / k
+            self.mu_[i, :] = (X[y == c]).mean(axis=0)
+        mu_y = self.mu_[y]
+        self.cov_ = np.sum(np.dstack([np.outer(x_i - mu_y_i, x_i - mu_y_i) for x_i, mu_y_i in zip(X, mu_y)]),
+                           axis=2) / (X.shape[0] - k)
+        self._cov_inv = inv(self.cov_)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -62,7 +73,13 @@ class LDA(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        res = np.zeros((X.shape[0],))
+        for i, x in enumerate(X):
+            res[i] = self.classes_[
+                np.argmax([(self._cov_inv @ self.mu_[k]).transpose() @ x + np.log(self.pi_[k]) - .5 *
+                           self.mu_[k] @ self._cov_inv @ self.mu_[k] for k, class_ in enumerate(self.classes_)])
+            ]
+        return res
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -81,8 +98,13 @@ class LDA(BaseEstimator):
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
-
-        raise NotImplementedError()
+        d = X.shape[0]
+        log = np.log
+        ret = np.zeros((d, self.classes_.size))
+        for c in self.classes_:
+            temp = log(self.pi_[c]) - d / 2 * log(2 * np.pi) - .5 * log(det(self.cov_))
+            for i, x in enumerate(X):
+                ret[i, c] = temp - .5 * (x - self.mu_[c]).transpose() @ self._cov_inv @ (x - self.mu_[c])
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -102,4 +124,4 @@ class LDA(BaseEstimator):
             Performance under missclassification loss function
         """
         from ...metrics import misclassification_error
-        raise NotImplementedError()
+        return misclassification_error(y, self.predict(X))
