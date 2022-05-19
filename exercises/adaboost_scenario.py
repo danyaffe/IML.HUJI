@@ -1,10 +1,13 @@
 import numpy as np
 from typing import Tuple
-from IMLearn.learners.metalearners.adaboost import AdaBoost
+from IMLearn.metalearners.adaboost import AdaBoost
 from IMLearn.learners.classifiers import DecisionStump
 from utils import *
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import matplotlib.pyplot as plt
+
 
 
 def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -38,24 +41,97 @@ def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
     return X, y
 
 
+def Q1(train_X, train_y, test_X, test_y, T, model):
+    iterations = list(range(1, T))
+    training_loss = [model.partial_loss(train_X, train_y, i) for i in range(1, T)]
+    testing_loss = [model.partial_loss(test_X, test_y, i) for i in range(1, T)]
+
+    fig, ax = plt.subplots()
+    ax.plot(iterations, training_loss)
+    ax.plot(iterations, testing_loss)
+    plt.title("loss vs. iterations")
+    plt.legend(["train", "test"])
+    plt.xlabel("iterations")
+    plt.ylabel("misclassification error")
+    plt.show()
+
+    return (np.argmin(testing_loss))
+
+
+def Q2(train_X, train_y, test_X, test_y, model):
+    T = [5, 50, 100, 250]
+    lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
+    fig = make_subplots(rows=2, cols=2, subplot_titles=[rf"$\textbf{{{m}}}$" for m in T],
+                        horizontal_spacing=0.01, vertical_spacing=.03)
+    for i, depth in enumerate(T):
+        fig.add_traces([decision_surface(lambda X: model.partial_predict(X, depth), lims[0], lims[1], showscale=False),
+                        go.Scatter(x=test_X[:, 0], y=test_X[:, 1], mode="markers", showlegend=False,
+                                   marker=dict(color=test_y, symbol="x", colorscale=[custom[0], custom[-1]],
+                                               line=dict(color="black", width=1)))],
+                       rows=(i // 2) + 1, cols=(i % 2) + 1)
+
+    fig.update_layout(title=rf"$\textbf{{Decision Surface of 5,50,100,250 iterations of AdaBoost}}$",
+                      margin=dict(t=100)) \
+        .update_xaxes(visible=False).update_yaxes(visible=False)
+    fig.show()
+
+
+def Q3(train_X, train_y, test_X, test_y, model, min_index):
+    lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
+    fig = make_subplots(rows=1, cols=1, subplot_titles=[
+        rf"$\textbf{{Size: {min_index}, Loss: {model.partial_loss(test_X, test_y, min_index)}}}$"],
+                        horizontal_spacing=0.01, vertical_spacing=.03)
+    fig.add_traces([decision_surface(lambda X: model.partial_predict(X, min_index), lims[0], lims[1], showscale=False),
+                    go.Scatter(x=test_X[:, 0], y=test_X[:, 1], mode="markers", showlegend=False,
+                               marker=dict(color=test_y, symbol="x", colorscale=[custom[0], custom[-1]],
+                                           line=dict(color="black", width=1)))],
+                   rows=1, cols=1)
+
+    fig.update_layout(title=rf"$\textbf{{Decision Surface of {min_index} iterations of AdaBoost}}$",
+                      margin=dict(t=100)) \
+        .update_xaxes(visible=False).update_yaxes(visible=False)
+    fig.show()
+
+
+def Q4(train_X, train_y, test_X, test_y, model, min_index):
+    lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
+    fig = make_subplots(rows=1, cols=1, subplot_titles=[
+        rf"$\textbf{{Size: {min_index}, Loss: {model.partial_loss(test_X, test_y, min_index)}}}$"],
+                        horizontal_spacing=0.01, vertical_spacing=.03)
+    fig.add_traces([decision_surface(lambda X: model.partial_predict(X, min_index), lims[0], lims[1], showscale=False),
+                    go.Scatter(x=train_X[:, 0], y=train_X[:, 1], mode="markers", showlegend=False,
+                               marker=dict(color=train_y, symbol="x", colorscale=[custom[0], custom[-1]],
+                                           size=model.D_ / np.max(model.D_) * 10,
+                                           line=dict(color="black", width=1)))],
+                   rows=1, cols=1)
+
+    fig.update_layout(title=rf"$\textbf{{Decision Surface of {min_index} iterations of AdaBoost}}$",
+                      margin=dict(t=100)) \
+        .update_xaxes(visible=False).update_yaxes(visible=False)
+    fig.show()
+
+
 def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=500):
     (train_X, train_y), (test_X, test_y) = generate_data(train_size, noise), generate_data(test_size, noise)
 
+    d = AdaBoost(DecisionStump, n_learners)
+    d.fit(train_X, train_y)
+
     # Question 1: Train- and test errors of AdaBoost in noiseless case
-    raise NotImplementedError()
+    min_loss_index = Q1(train_X, train_y, test_X, test_y, n_learners, d)
 
     # Question 2: Plotting decision surfaces
-    T = [5, 50, 100, 250]
-    lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
-    raise NotImplementedError()
+    Q2(train_X, train_y, test_X, test_y, d)
 
     # Question 3: Decision surface of best performing ensemble
-    raise NotImplementedError()
+    Q3(train_X, train_y, test_X, test_y, d, min_loss_index)
 
     # Question 4: Decision surface with weighted samples
-    raise NotImplementedError()
+    Q4(train_X, train_y, test_X, test_y, d, n_learners)
 
 
 if __name__ == '__main__':
     np.random.seed(0)
-    raise NotImplementedError()
+    fit_and_evaluate_adaboost(0)
+    input()
+    fit_and_evaluate_adaboost(0.4)

@@ -107,33 +107,34 @@ def compare_gaussian_classifiers():
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         from IMLearn.metrics import accuracy
-        fig = make_subplots(rows=1, cols=2)
+        fig = make_subplots(rows=1, cols=2, subplot_titles=[f"Accuracy of Bayes: {accuracy(y, bayes_pred):.4f}",
+                                                            f"Accuracy of LDA: {accuracy(y, lda_pred):.4f}"])
         fig.update_layout(showlegend=False, title_text=f"LDA and GaussianNaiveBayes vs. {f}", xaxis_title="Feature 1",
-            yaxis_title="Feature 2")
+                          yaxis_title="Feature 2")
 
         fig.add_trace(
             go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=lda_pred, symbol=y)),
-            row=1, col=1
+            row=1, col=2
         )
         for mu in lda.mu_:
             fig.add_trace(
-                get_ellipse(mu, lda.cov_), row=1, col=1
-            )
-            fig.add_trace(
-                go.Scatter(x=[mu[0]], y=[mu[1]], mode="markers", marker_symbol=34, marker_line_color="black",
-                           marker_line_width=2, marker_size=15), row=1, col=1
-            )
-        fig.add_trace(
-            go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=bayes_pred, symbol=y)),
-            row=1, col=2
-        )
-        for mu, cov in zip(bayes.mu_, bayes.vars_):
-            fig.add_trace(
-                get_ellipse(mu, np.diag(cov)), row=1, col=2
+                get_ellipse(mu, lda.cov_), row=1, col=2
             )
             fig.add_trace(
                 go.Scatter(x=[mu[0]], y=[mu[1]], mode="markers", marker_symbol=34, marker_line_color="black",
                            marker_line_width=2, marker_size=15), row=1, col=2
+            )
+        fig.add_trace(
+            go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=bayes_pred, symbol=y)),
+            row=1, col=1
+        )
+        for mu, cov in zip(bayes.mu_, bayes.vars_):
+            fig.add_trace(
+                get_ellipse(mu, np.diag(cov)), row=1, col=1
+            )
+            fig.add_trace(
+                go.Scatter(x=[mu[0]], y=[mu[1]], mode="markers", marker_symbol=34, marker_line_color="black",
+                           marker_line_width=2, marker_size=15), row=1, col=1
             )
         fig.show()
 
